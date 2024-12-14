@@ -7,4 +7,11 @@ layout:
 - go.kubebuilder.io/v4
 projectName: multi-networkpolicy-nftables
 repo: github.com/k8snetworkplumbingwg/multi-networkpolicy-nftables
+resources:
+- controller: true
+  domain: k8s.cni.cncf.io
+  external: true
+  kind: MultiNetworkPolicy
+  path: github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/apis/k8s.cni.cncf.io/v1beta1
+  version: v1beta1
 version: "3"

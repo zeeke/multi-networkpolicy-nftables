@@ -3,6 +3,7 @@ module github.com/k8snetworkplumbingwg/multi-networkpolicy-nftables
 go 1.22.0
 
 require (
+	github.com/k8snetworkplumbingwg/multi-networkpolicy v1.0.1
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	k8s.io/apimachinery v0.31.0
