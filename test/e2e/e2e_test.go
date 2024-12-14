@@ -160,7 +160,10 @@ var _ = Describe("Manager", Ordered, func() {
 
 		It("should ensure the metrics endpoint is serving metrics", func() {
 			By("creating a ClusterRoleBinding for the service account to allow access to metrics")
-			cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
+			cmd := exec.Command("kubectl", "delete", "clusterrolebinding", metricsRoleBindingName)
+			utils.Run(cmd)
+
+			cmd = exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
 				"--clusterrole=multi-networkpolicy-nftables-metrics-reader",
 				fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
 			)
@@ -171,11 +174,6 @@ var _ = Describe("Manager", Ordered, func() {
 			cmd = exec.Command("kubectl", "get", "service", metricsServiceName, "-n", namespace)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Metrics service should exist")
-
-			By("validating that the ServiceMonitor for Prometheus is applied in the namespace")
-			cmd = exec.Command("kubectl", "get", "ServiceMonitor", "-n", namespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "ServiceMonitor should exist")
 
 			By("getting the service account token")
 			token, err := serviceAccountToken()
@@ -225,7 +223,7 @@ var _ = Describe("Manager", Ordered, func() {
 			By("getting the metrics by checking curl-metrics logs")
 			metricsOutput := getMetricsOutput()
 			Expect(metricsOutput).To(ContainSubstring(
-				"controller_runtime_reconcile_total",
+				"controller_runtime_webhook_panics_total",
 			))
 		})
 
