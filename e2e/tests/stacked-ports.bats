@@ -10,11 +10,10 @@
 # - Policy 1 (in nsX): allow ingress from pod=b on port 5555
 # - Policy 2 (in nsX): allow ingress from pod=c on port 6666
 #
-# Expected (matching upstream SR-IOV test - podSelector matches across namespaces):
-# - pod-b (any ns) -> pod-a:5555 ALLOWED
-# - pod-b (any ns) -> pod-a:6666 BLOCKED
-# - pod-c (any ns) -> pod-a:6666 ALLOWED
-# - pod-c (any ns) -> pod-a:5555 BLOCKED
+# Expected (podSelector without namespaceSelector matches policy namespace only):
+# - nsX/pod-b -> pod-a:5555 ALLOWED, pod-a:6666 BLOCKED
+# - nsX/pod-c -> pod-a:6666 ALLOWED, pod-a:5555 BLOCKED
+# - nsY,nsZ pods -> pod-a (any port) BLOCKED (wrong namespace)
 
 setup() {
 	cd $BATS_TEST_DIRNAME
@@ -35,11 +34,11 @@ setup() {
 	run kubectl -n test-stacked-ports-z wait --for=condition=ready -l app=test-stacked-ports pod --timeout=${kubewait_timeout}
 	[ "$status" -eq  "0" ]
 
-	sleep 5
+	sleep 10
 }
 
 @test "check generated nftables rules" {
-	sleep 5
+	sleep 10
 
 	# Only pod-a in nsX should have nftables rules (policy target)
 	run has_nftables_table "test-stacked-ports-x" "pod-a"
@@ -73,44 +72,45 @@ setup() {
 	[ "$status" -eq  "1" ]
 }
 
-# Cross-namespace tests (nsY)
-@test "stacked-ports check nsY/pod-b -> pod-a:5555 (allowed by policy 1, cross-ns)" {
+# Cross-namespace tests (nsY) - all blocked because podSelector without
+# namespaceSelector only matches pods in the policy's namespace (nsX)
+@test "stacked-ports check nsY/pod-b -> pod-a:5555 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-y exec pod-b -- sh -c "echo x | nc -w 1 ${server_net1} 5555"
-	[ "$status" -eq  "0" ]
+	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsY/pod-b -> pod-a:6666 (blocked, wrong port, cross-ns)" {
+@test "stacked-ports check nsY/pod-b -> pod-a:6666 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-y exec pod-b -- sh -c "echo x | nc -w 1 ${server_net1} 6666"
 	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsY/pod-c -> pod-a:6666 (allowed by policy 2, cross-ns)" {
+@test "stacked-ports check nsY/pod-c -> pod-a:6666 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-y exec pod-c -- sh -c "echo x | nc -w 1 ${server_net1} 6666"
-	[ "$status" -eq  "0" ]
+	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsY/pod-c -> pod-a:5555 (blocked, wrong port, cross-ns)" {
+@test "stacked-ports check nsY/pod-c -> pod-a:5555 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-y exec pod-c -- sh -c "echo x | nc -w 1 ${server_net1} 5555"
 	[ "$status" -eq  "1" ]
 }
 
-# Cross-namespace tests (nsZ)
-@test "stacked-ports check nsZ/pod-b -> pod-a:5555 (allowed by policy 1, cross-ns)" {
+# Cross-namespace tests (nsZ) - all blocked for same reason
+@test "stacked-ports check nsZ/pod-b -> pod-a:5555 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-z exec pod-b -- sh -c "echo x | nc -w 1 ${server_net1} 5555"
-	[ "$status" -eq  "0" ]
+	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsZ/pod-b -> pod-a:6666 (blocked, wrong port, cross-ns)" {
+@test "stacked-ports check nsZ/pod-b -> pod-a:6666 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-z exec pod-b -- sh -c "echo x | nc -w 1 ${server_net1} 6666"
 	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsZ/pod-c -> pod-a:6666 (allowed by policy 2, cross-ns)" {
+@test "stacked-ports check nsZ/pod-c -> pod-a:6666 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-z exec pod-c -- sh -c "echo x | nc -w 1 ${server_net1} 6666"
-	[ "$status" -eq  "0" ]
+	[ "$status" -eq  "1" ]
 }
 
-@test "stacked-ports check nsZ/pod-c -> pod-a:5555 (blocked, wrong port, cross-ns)" {
+@test "stacked-ports check nsZ/pod-c -> pod-a:5555 (blocked, cross-ns)" {
 	run kubectl -n test-stacked-ports-z exec pod-c -- sh -c "echo x | nc -w 1 ${server_net1} 5555"
 	[ "$status" -eq  "1" ]
 }

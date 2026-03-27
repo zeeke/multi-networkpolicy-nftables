@@ -9,10 +9,10 @@
 # - Policy on nsX/pod-a allows ingress from:
 #     namespaceSelector: ns=y  OR  podSelector: pod=b
 #
-# Expected:
+# Expected (podSelector without namespaceSelector matches policy namespace only):
 # - All nsY pods can reach nsX/pod-a (namespace match)
-# - nsX/pod-b and nsZ/pod-b can reach nsX/pod-a (pod label match)
-# - nsX/pod-c, nsZ/pod-a, nsZ/pod-c are blocked (neither match)
+# - nsX/pod-b can reach nsX/pod-a (pod label match, same namespace as policy)
+# - nsX/pod-c, nsZ/pod-a, nsZ/pod-b, nsZ/pod-c are blocked
 
 setup() {
 	cd $BATS_TEST_DIRNAME
@@ -33,11 +33,11 @@ setup() {
 	run kubectl -n test-ns-or-pod-z wait --for=condition=ready -l app=test-ns-or-pod pod --timeout=${kubewait_timeout}
 	[ "$status" -eq  "0" ]
 
-	sleep 5
+	sleep 10
 }
 
 @test "check generated nftables rules" {
-	sleep 5
+	sleep 10
 
 	# Only nsX/pod-a should have nftables rules (policy target)
 	run has_nftables_table "test-ns-or-pod-x" "pod-a"
@@ -86,10 +86,10 @@ setup() {
 	[ "$status" -eq  "1" ]
 }
 
-# nsZ/pod-b -> nsX/pod-a: ALLOWED (podSelector: pod=b matches)
-@test "ns-or-pod check nsZ/pod-b -> nsX/pod-a (matching pod label, different ns)" {
+# nsZ/pod-b -> nsX/pod-a: BLOCKED (podSelector without namespaceSelector only matches policy namespace)
+@test "ns-or-pod check nsZ/pod-b -> nsX/pod-a (pod label match but wrong ns)" {
 	run kubectl -n test-ns-or-pod-z exec pod-b -- sh -c "echo x | nc -w 1 ${server_net1} 5555"
-	[ "$status" -eq  "0" ]
+	[ "$status" -eq  "1" ]
 }
 
 # nsZ/pod-c -> nsX/pod-a: BLOCKED (no match)
