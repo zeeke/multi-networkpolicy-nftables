@@ -1,0 +1,213 @@
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  namespace: default
+  name: macvlan1-stacked-ports
+spec:
+  config: '{
+            "cniVersion": "0.3.1",
+            "name": "macvlan1-stacked-ports",
+            "plugins": [
+                {
+                    "type": "macvlan",
+                    "mode": "bridge",
+                    "ipam":{
+                      "type":"host-local",
+                      "subnet":"2.2.11.0/24",
+                      "rangeStart":"2.2.11.8",
+                      "rangeEnd":"2.2.11.67"
+                    }
+                }]
+        }'
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-stacked-ports-x
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-stacked-ports-y
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-stacked-ports-z
+---
+# nsX pods
+# Server pod listening on both port 5555 and 6666
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-a
+  namespace: test-stacked-ports-x
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: a
+spec:
+  containers:
+    - name: server
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["sh", "-c", "nc -kl 0.0.0.0 5555 & nc -kl 0.0.0.0 6666 & wait"]
+      securityContext:
+        privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-b
+  namespace: test-stacked-ports-x
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: b
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-c
+  namespace: test-stacked-ports-x
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: c
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+# nsY pods
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-b
+  namespace: test-stacked-ports-y
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: b
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-c
+  namespace: test-stacked-ports-y
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: c
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+# nsZ pods
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-b
+  namespace: test-stacked-ports-z
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: b
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-c
+  namespace: test-stacked-ports-z
+  annotations:
+    k8s.v1.cni.cncf.io/networks: default/macvlan1-stacked-ports
+  labels:
+    app: test-stacked-ports
+    pod: c
+spec:
+  containers:
+    - name: client
+      image: localhost:5000/multus-networkpolicy-nftables-tests:e2e
+      command: ["nc", "-kl", "0.0.0.0", "5555"]
+      securityContext:
+        privileged: true
+---
+# Policy 1: Allow ingress from pod=b on port 5555 (in nsX)
+apiVersion: k8s.cni.cncf.io/v1beta1
+kind: MultiNetworkPolicy
+metadata:
+  name: stacked-port-policy-1
+  namespace: test-stacked-ports-x
+  annotations:
+    k8s.v1.cni.cncf.io/policy-for: default/macvlan1-stacked-ports
+spec:
+  podSelector:
+    matchLabels:
+      pod: a
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              pod: b
+      ports:
+        - port: 5555
+          protocol: TCP
+---
+# Policy 2: Allow ingress from pod=c on port 6666 (in nsX)
+apiVersion: k8s.cni.cncf.io/v1beta1
+kind: MultiNetworkPolicy
+metadata:
+  name: stacked-port-policy-2
+  namespace: test-stacked-ports-x
+  annotations:
+    k8s.v1.cni.cncf.io/policy-for: default/macvlan1-stacked-ports
+spec:
+  podSelector:
+    matchLabels:
+      pod: a
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              pod: c
+      ports:
+        - port: 6666
+          protocol: TCP
